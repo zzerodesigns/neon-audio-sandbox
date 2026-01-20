@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Neon Audio Sandbox</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --bg-dark: #050a10;
+            --panel-bg: rgba(10, 20, 30, 0.95);
+            --accent: #33ccff; 
+            --accent-dim: rgba(51, 204, 255, 0.1);
+            --danger: #ff3333;
+            --text-main: #e2e8f0;
+            --text-muted: #64748b;
+            --font-ui: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            --font-header: 'Arial Black', sans-serif;
+            --font-mono: 'Consolas', 'Monaco', 'Courier New', monospace;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: var(--font-ui);
+            overflow: hidden;
+            background-image: 
+                linear-gradient(rgba(51, 204, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(51, 204, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        /* --- UTILS --- */
+        .font-header { font-family: var(--font-header); letter-spacing: -1px; }
+        .text-accent { color: var(--accent); text-shadow: 0 0 10px rgba(51, 204, 255, 0.4); }
+        
+        /* --- COMPONENTS --- */
+        .glass-panel {
+            background: var(--panel-bg);
+            border: 1px solid rgba(51, 204, 255, 0.2);
+            backdrop-filter: blur(4px);
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Cyber Button (Clean Block) */
+        .cyber-btn {
+            position: relative;
+            background: rgba(51, 204, 255, 0.05);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            font-family: var(--font-header);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+        }
+        .cyber-btn:hover {
+            background: var(--accent);
+            color: #000;
+            box-shadow: 0 0 25px var(--accent);
+            z-index: 10;
+        }
+        .cyber-btn:active { transform: scale(0.99); }
+
+        .cyber-btn-secondary {
+            border-color: #475569;
+            color: #94a3b8;
+            background: rgba(15, 23, 42, 0.5);
+        }
+        .cyber-btn-secondary:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: rgba(51, 204, 255, 0.1);
+        }
+
+        .cyber-btn-danger {
+            border-color: var(--danger);
+            color: var(--danger);
+            background: rgba(255, 51, 51, 0.1);
+        }
+        .cyber-btn-danger:hover {
+            background: var(--danger);
+            color: #000;
+            box-shadow: 0 0 20px var(--danger);
+        }
+
+        .cyber-input {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(51, 204, 255, 0.3);
+            color: white;
+            font-family: var(--font-mono);
+            padding: 4px 8px;
+            transition: 0.2s;
+        }
+        .cyber-input:focus {
+            border-color: var(--accent);
+            outline: none;
+            background: rgba(51, 204, 255, 0.05);
+        }
+
+        /* Library Play Button */
+        .lib-play-btn {
+            background: rgba(51, 204, 255, 0.05);
+            color: var(--accent);
+            transition: all 0.2s ease;
+        }
+        .lib-play-btn:hover {
+            background: var(--accent);
+            color: #000;
+            box-shadow: 0 0 15px var(--accent);
+        }
+
+        /* Cyber Range Slider (Strict Adherence to Reference) */
+        .cyber-range {
+            -webkit-appearance: none; width: 100%; height: 8px; 
+            background: #111; outline: none; transition: 0.2s; border-radius: 4px;
+            border: 1px solid #334455;
+        }
+        .cyber-range::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none; width: 24px; height: 24px; 
+            background: #15202b; border: 2px solid var(--accent); border-radius: 50%; cursor: pointer;
+            box-shadow: 0 0 15px rgba(51, 204, 255, 0.4); transition: transform 0.1s;
+            margin-top: -1px; 
+        }
+        .cyber-range::-webkit-slider-thumb:hover { transform: scale(1.2); background: var(--accent); box-shadow: 0 0 25px var(--accent); }
+
+        /* Library Items */
+        .lib-item {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: 0.2s;
+        }
+        .lib-item:hover {
+            border-color: rgba(51, 204, 255, 0.5);
+            background: rgba(51, 204, 255, 0.02);
+        }
+
+        /* Splitter Handle */
+        .gutter {
+            width: 8px;
+            cursor: col-resize;
+            background: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+            flex-shrink: 0;
+        }
+        .gutter:hover, .gutter.dragging {
+            background: rgba(51, 204, 255, 0.1);
+        }
+        .gutter::after {
+            content: '';
+            width: 2px;
+            height: 40px;
+            background: #334455;
+            border-radius: 2px;
+        }
+        .gutter:hover::after, .gutter.dragging::after {
+            background: var(--accent);
+            box-shadow: 0 0 10px var(--accent);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #020202; }
+        ::-webkit-scrollbar-thumb { background: #334455; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+        /* Animations */
+        @keyframes scanline {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100%); }
+        }
+        .scanline::after {
+            content: ''; position: absolute; top:0; left:0; right:0; height: 2px;
+            background: rgba(51, 204, 255, 0.3);
+            opacity: 0.5;
+            animation: scanline 3s linear infinite;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col p-6 box-border relative select-none">
+
+    <!-- Header -->
+    <header class="flex justify-between items-center mb-4 pb-2 border-b border-gray-800 flex-shrink-0 z-10">
+        <div class="flex flex-col">
+            <h1 class="text-3xl text-white font-header uppercase italic tracking-tighter flex items-center gap-3">
+                <span class="text-accent text-4xl">◆</span> Neon Audio Sandbox
+            </h1>
+            <p class="text-xs text-slate-500 font-bold tracking-widest mt-1 ml-1">
+                Isolated Testing Environment for Synthesized Audio // v1.9
+            </p>
+        </div>
+
+        <div class="flex items-center gap-6">
+            <div class="flex flex-col items-end gap-1">
+                <div class="text-[10px] text-accent font-mono border border-accent/30 px-2 py-0.5 bg-accent/5">
+                    System Status: Online
+                </div>
+                <div id="itemCount" class="text-[10px] text-slate-500 font-bold uppercase">
+                    0 Signals Loaded
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Top Row: Visualizer & Volume -->
+    <div class="flex w-full h-28 gap-4 mb-4 flex-shrink-0 z-10">
+        <!-- Visualizer -->
+        <div class="flex-grow bg-black border border-gray-800 relative overflow-hidden scanline">
+            <div class="absolute top-2 left-3 text-[10px] text-accent font-bold tracking-widest pointer-events-none uppercase z-20">
+                Oscilloscope Feed
+            </div>
+            <canvas id="visualizer" class="w-full h-full opacity-80"></canvas>
+        </div>
+        
+        <!-- Volume Control -->
+        <div class="w-64 bg-black/40 border border-gray-800 p-4 flex flex-col justify-center gap-3 relative">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <label class="text-[10px] text-accent font-header uppercase tracking-wider">Output Level</label>
+                    <!-- Small inline speaker icon -->
+                    <svg width="12" height="12" fill="currentColor" class="text-slate-600" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+                </div>
+                <button id="resetVolBtn" class="text-[9px] text-slate-500 hover:text-white border border-transparent hover:border-accent hover:bg-accent/10 hover:shadow-[0_0_15px_rgba(51,204,255,0.4)] px-2 py-0.5 transition-all uppercase font-bold">
+                    Reset
+                </button>
+            </div>
+            <div class="relative w-full h-8 flex items-center">
+                <input type="range" min="0" max="2" step="0.01" value="1.0" class="cyber-range" id="masterVolume">
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Workspace (Split Pane) -->
+    <div class="flex flex-grow overflow-hidden z-10 relative" id="workspace">
+        
+        <!-- Left: Editor & Controls -->
+        <div class="glass-panel relative flex flex-col" style="flex-basis: 50%;" id="leftPanel">
+            <!-- Toolbar: Code Injection -->
+            <!-- z-20 added to prevent glow clipping by editor below -->
+            <div class="flex h-12 border-b border-white/10 bg-black/40 relative z-20">
+                <!-- Label Area -->
+                <div class="flex-grow flex items-center px-4">
+                     <h2 class="text-white font-header text-xs uppercase tracking-wide flex items-center gap-2">
+                        <span class="w-2 h-2 bg-accent rotate-45"></span>
+                        Code Injection
+                    </h2>
+                </div>
+                <!-- Inject Button (Same structure as Save Slot) -->
+                <!-- Removed inline style border-left:0; it now inherits correct border from cyber-btn-secondary -->
+                <button id="injectBtn" class="w-48 cyber-btn cyber-btn-secondary text-xs font-bold">
+                    INJECT CODE
+                </button>
+            </div>
+
+            <!-- Editor Area -->
+            <div class="relative flex-grow bg-[#080c10] overflow-hidden z-0">
+                <textarea id="editor" 
+                    class="w-full h-full bg-transparent text-cyan-50 font-mono text-sm p-4 border-none focus:outline-none resize-none leading-relaxed"
+                    spellcheck="false"
+                    placeholder="// Paste function body OR object method here...
+// example:
+// playSound: function(pos) { ... }"></textarea>
+                
+                <!-- Error Toast -->
+                <div id="errorDisplay" class="hidden absolute bottom-0 left-0 right-0 bg-red-950/90 border-t border-red-500 text-red-200 text-xs p-2 font-mono">
+                </div>
+            </div>
+
+            <!-- Main Actions (Bottom Row) -->
+            <div class="flex h-16 border-t border-white/10 bg-black/40 z-20 relative">
+                <button id="playBtn" class="flex-[3] cyber-btn border-r border-white/10 hover:border-accent">
+                    <div class="flex flex-col items-center justify-center leading-none gap-1">
+                        <span class="text-lg tracking-widest font-bold">EXECUTE</span>
+                        <span class="text-[9px] opacity-60 font-mono font-normal tracking-tight">[CTRL+ENTER]</span>
+                    </div>
+                </button>
+                <button id="saveBtn" class="flex-1 cyber-btn cyber-btn-secondary text-sm">
+                    Save Slot
+                </button>
+            </div>
+        </div>
+
+        <!-- Splitter Handle -->
+        <div class="gutter" id="splitter"></div>
+
+        <!-- Right: Library -->
+        <div class="glass-panel flex flex-col" style="flex-basis: 50%;" id="rightPanel">
+            <div class="px-4 py-2 border-b border-white/5 bg-black/40 flex-shrink-0">
+                <h2 class="text-white font-header text-xs uppercase tracking-wide">
+                    Signal Library
+                </h2>
+            </div>
+            
+            <div id="libraryList" class="flex-grow overflow-y-auto p-3 space-y-3 bg-[#080c10]">
+                <!-- Items injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Logic -->
+    <script>
+        // --- CONSTANTS & DEFAULTS ---
+        const DEFAULT_CODE = `// Simple Teleport
+const t = this.ctx.currentTime;
+const osc = this.ctx.createOscillator();
+const gain = this.ctx.createGain();
+
+osc.type = 'sawtooth';
+osc.frequency.setValueAtTime(200, t);
+osc.frequency.exponentialRampToValueAtTime(800, t + 0.1);
+
+gain.gain.setValueAtTime(0.5, t);
+gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
+
+osc.connect(gain);
+gain.connect(this.masterGain);
+
+osc.start(t);
+osc.stop(t + 0.35);`;
+
+        // --- STATE ---
+        const state = {
+            library: JSON.parse(localStorage.getItem('synthLab_library') || '[]'),
+            editorCode: DEFAULT_CODE,
+            pendingDeletes: {}, // Object: { id: secondsRemaining }
+            expandedPrompts: new Set(),
+            runningIds: new Set(), // Track which library items are active
+        };
+
+        // --- CODE PROCESSOR ---
+        const CodeProcessor = {
+            extractVariants(code) {
+                const variants = [];
+                let funcName = "Untitled Signal";
+                let argName = null;
+
+                // 1. Detect Name & Structure (Object Method or Function Declaration)
+                const objMethodMatch = code.match(/^\s*([\w\d_$]+)\s*:\s*function\s*\(\s*(\w+)/);
+                if (objMethodMatch) {
+                    funcName = objMethodMatch[1];
+                    argName = objMethodMatch[2];
+                } else {
+                    const funcMatch = code.match(/function\s+([\w\d_$]+)\s*\(\s*(\w+)/);
+                    if (funcMatch) {
+                        funcName = funcMatch[1];
+                        argName = funcMatch[2];
+                    } else if (code.match(/^\s*([\w\d_$]+)\s*:/)) {
+                         // Fallback for object keys without args
+                         funcName = code.split(':')[0].trim();
+                    }
+                }
+
+                // If argName is 'active', treat as a Toggle Control
+                const isToggle = (argName === 'active');
+
+                // If no arg detected, return single default
+                if (!argName) {
+                    return [{ name: funcName, code: code, isDefault: true, isToggle: false }];
+                }
+
+                // 2. Scan for Variants (if (arg === 'VAL'))
+                // Matches: type === 'VOID' or type === "VOID"
+                const regex = new RegExp(`${argName}\\s*===\\s*(['"])(.*?)\\1`, 'g');
+                let match;
+                const foundTypes = new Set();
+                
+                while ((match = regex.exec(code)) !== null) {
+                    foundTypes.add(match[2]);
+                }
+
+                // 3. Generate Variants
+                foundTypes.forEach(type => {
+                    variants.push({
+                        name: `${funcName} (${type})`,
+                        code: this.generateWrapper(code, funcName, type),
+                        isDefault: false,
+                        isToggle: false // Variants are usually one-shots types
+                    });
+                });
+
+                // 4. Check for 'else' or if it's a direct toggle
+                if (isToggle) {
+                    // For toggles, we generate a wrapper that passes 'true' initially
+                    // The isToggle flag tells UI to show a stop button
+                    variants.push({
+                        name: funcName,
+                        code: this.generateWrapper(code, funcName, 'TOGGLE_START'),
+                        isDefault: true,
+                        isToggle: true
+                    });
+                } else if (foundTypes.size > 0 && /\selse\s/.test(code)) {
+                    variants.push({
+                        name: `${funcName} (STANDARD)`,
+                        code: this.generateWrapper(code, funcName, 'STANDARD'),
+                        isDefault: true,
+                        isToggle: false
+                    });
+                }
+
+                // Fallback: If no variants found and not a toggle
+                if (variants.length === 0) {
+                    return [{ name: funcName, code: code, isDefault: true, isToggle: false }];
+                }
+
+                return variants;
+            },
+
+            generateWrapper(code, key, type) {
+                // Wrapper Strategy: 
+                // We define 'this.main' on the scope so we can call it later with (false) to stop it.
+                // The 'type' arg is passed initially.
+                
+                let callLogic = "";
+
+                if (/^\s*[\w\d_$]+\s*:/.test(code)) {
+                    // Object Method
+                    const cleanKey = code.split(':')[0].trim();
+                    callLogic = `
+                        const ctx = { \n${code}\n};\n
+                        ctx['${cleanKey}'].call(this, arg, {x:0, y:0, z:0});
+                    `;
+                } else if (/function\s+[\w\d_$]+/.test(code)) {
+                    // Function Declaration
+                    callLogic = `
+                        ${code}\n
+                        ${key}.call(this, arg, {x:0, y:0, z:0});
+                    `;
+                } else {
+                    // Raw Code fallback
+                    callLogic = code;
+                }
+                
+                // If the type is our special TOGGLE_START, we pass true (boolean)
+                // Otherwise we pass the string type
+                const initialArg = (type === 'TOGGLE_START') ? 'true' : `'${type}'`;
+
+                return `
+// [Auto-Generated Re-Entrant Wrapper]
+this.main = function(arg) {
+    ${callLogic}
+};
+// Start Immediately
+this.main(${initialArg});
+                `.trim();
+            }
+        };
+
+        // --- AUDIO ENGINE ---
+        const AudioEngine = {
+            ctx: null,
+            masterGain: null,
+            analyser: null,
+            activeScopes: new Map(), // Stores { id: scopeObject }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                    this.masterGain = this.ctx.createGain();
+                    this.masterGain.gain.value = 1.0;
+                    
+                    this.analyser = this.ctx.createAnalyser();
+                    this.analyser.fftSize = 2048;
+                    this.masterGain.connect(this.analyser);
+                    this.analyser.connect(this.ctx.destination);
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            },
+
+            setVolume(val) {
+                if (this.masterGain) {
+                    this.masterGain.gain.setTargetAtTime(val * val * 2, this.ctx.currentTime, 0.1);
+                }
+            },
+
+            execute(code, id = null) {
+                this.init();
+                
+                // Create or reuse scope for this ID to allow persistence (toggling)
+                // If ID is null (Editor execution), we don't persist scope to avoid zombie sounds
+                let mockScope;
+                if (id) {
+                    if (!this.activeScopes.has(id)) {
+                        this.activeScopes.set(id, {
+                            ctx: this.ctx,
+                            masterGain: this.masterGain,
+                            getDistanceMod: (pos) => 1.0, 
+                            getLinearMod: (pos) => 1.0
+                        });
+                    }
+                    mockScope = this.activeScopes.get(id);
+                } else {
+                    mockScope = {
+                        ctx: this.ctx,
+                        masterGain: this.masterGain,
+                        getDistanceMod: (pos) => 1.0, 
+                        getLinearMod: (pos) => 1.0
+                    };
+                }
+
+                try {
+                    // We can't rely on eval() to attach 'main' to scope cleanly if we don't return it
+                    // But 'new Function' runs in global scope usually, unless bound.
+                    // We bind the function to mockScope.
+                    
+                    const executableFunc = new Function(code);
+                    executableFunc.call(mockScope);
+                    
+                    return { success: true };
+
+                } catch (e) {
+                    return { success: false, error: e.toString() };
+                }
+            },
+
+            stop(id) {
+                if (this.activeScopes.has(id)) {
+                    const scope = this.activeScopes.get(id);
+                    // If the wrapper defined 'this.main', we call it with false to trigger stop logic
+                    if (typeof scope.main === 'function') {
+                        try {
+                            scope.main(false);
+                        } catch(e) { console.warn("Stop failed", e); }
+                    }
+                }
+            }
+        };
+
+        // --- CODE ANALYZER & DESCRIPTION GENERATOR ---
+        const getFlavorText = (c) => {
+            if (c.includes('sawtooth')) return c.includes('exponential') ? "Laser Blaster" : "Power Saw";
+            if (c.includes('square')) return "8-Bit Coin";
+            if (c.includes('sine')) return "Sonar Ping";
+            if (c.includes('triangle')) return "Spirit Flute";
+            if (c.includes('random') || c.includes('noise')) return "Static Burst";
+            if (c.includes('buffer')) return "Sampler Hit";
+            return "Unknown Artifact";
+        };
+
+        const analyzeCode = (code) => {
+            const c = code.toLowerCase();
+            const adjectives = [];
+            
+            // Heuristic Analysis
+            if (c.includes('sawtooth')) adjectives.push("Sharp");
+            if (c.includes('square')) adjectives.push("Digital");
+            if (c.includes('sine')) adjectives.push("Pure");
+            if (c.includes('triangle')) adjectives.push("Mellow");
+            if (c.includes('random') || c.includes('noise')) adjectives.push("Noisy");
+            if (c.includes('compressor')) adjectives.push("Compressed");
+            if (c.includes('filter')) adjectives.push("Filtered");
+            if (c.includes('buffer')) adjectives.push("Sampled");
+
+            // Fallback
+            if (adjectives.length === 0) adjectives.push("Procedural");
+
+            // Combine up to 2 for brevity
+            const tags = adjectives.slice(0, 2).join(" / ");
+            const flavor = getFlavorText(c);
+            
+            return `${tags} Signal <span class="text-slate-500 font-normal italic ml-1">(${flavor})</span>`;
+        };
+
+        const generateVividDescription = (code, title) => {
+            const c = code.toLowerCase();
+            const seed = Math.floor(Math.random() * 5); // Add slight variety
+            
+            // Intro
+            const intros = [
+                "This script synthesizes a",
+                "Procedurally generates a",
+                "Compiles a signal chain for a",
+                "Constructs a high-fidelity"
+            ];
+            const intro = intros[seed % intros.length];
+
+            // Timbre
+            let timbre = "neutral";
+            if (c.includes('sawtooth')) timbre = "biting, aggressive sawtooth waveform with rich upper harmonics";
+            if (c.includes('square')) timbre = "hollow, retro-styled square wave characteristic of 8-bit systems";
+            if (c.includes('sine')) timbre = "clean, fundamental sine tone with minimal distortion";
+            if (c.includes('triangle')) timbre = "soft, flute-like triangle wave suitable for melodic content";
+            if (c.includes('random') || c.includes('noise')) timbre = "stochastic noise layer adding grit and texture";
+
+            // Modulation
+            let mod = "static amplitude";
+            if (c.includes('exponentialramptovalue')) mod = "snappy, percussive exponential decay envelope";
+            if (c.includes('linearramptovalue')) mod = "smooth linear transition over time";
+            if (c.includes('oscillator') && c.includes('frequency')) mod = "pitch-modulated sweep typical of sci-fi effects";
+
+            // Processing
+            const fx = [];
+            if (c.includes('biquadfilter')) fx.push("subtractive equalization via biquad filtering");
+            if (c.includes('dynamicscompressor')) fx.push("dynamic range control for punchiness");
+            if (c.includes('gain')) fx.push("gain staging");
+            
+            const fxStr = fx.length > 0 ? ` The output passes through ${fx.join(" and ")}.` : "";
+            
+            // Human Impression (Imaginative Layer)
+            let imagination = "an abstract, digital beep.";
+            if (c.includes('sawtooth')) {
+                if (c.includes('exponential')) imagination = "a retro sci-fi laser blaster firing.";
+                else if (c.includes('frequency')) imagination = "a power-up generator charging.";
+                else imagination = "a harsh, buzzing alarm.";
+            } else if (c.includes('square')) {
+                if (c.includes('exponential')) imagination = "picking up a coin in a pixel-art game.";
+                else imagination = "an 8-bit computer processing data.";
+            } else if (c.includes('sine')) {
+                if (c.includes('frequency')) imagination = "a sonar ping or a spaceship hovering.";
+                else imagination = "a polite, 'clean' user interface notification.";
+            } else if (c.includes('triangle')) {
+                imagination = "a soft, hollow menu navigation click.";
+            } else if (c.includes('random') || c.includes('noise')) {
+                if (c.includes('filter')) imagination = "steam releasing or wind rushing past.";
+                else imagination = "television static or a radio tuned between stations.";
+            } else if (c.includes('buffer')) {
+                imagination = "a mechanical click or sampled impact.";
+            }
+
+            return `${intro} ${timbre}, shaped by a ${mod}.${fxStr}\n\nAUDITORY HALLUCINATION:\nTo a human ear, this likely resembles ${imagination}\n\nIntended for the '${title}' event trigger. Optimizations for low-latency playback are active.`;
+        };
+
+        // --- UI CONTROLLER ---
+        const UI = {
+            editor: document.getElementById('editor'),
+            editorContainer: document.getElementById('leftPanel'),
+            libraryContainer: document.getElementById('rightPanel'),
+            splitter: document.getElementById('splitter'),
+            
+            errorDisplay: document.getElementById('errorDisplay'),
+            libraryList: document.getElementById('libraryList'),
+            canvas: document.getElementById('visualizer'),
+            canvasCtx: document.getElementById('visualizer').getContext('2d'),
+            timers: {},
+            isDragging: false,
+
+            init() {
+                this.editor.value = state.editorCode;
+                this.renderLibrary();
+                this.startVisualizer();
+                this.initSplitter();
+                
+                document.getElementById('playBtn').onclick = () => this.runCode();
+                document.getElementById('saveBtn').onclick = () => this.saveToLibrary();
+                document.getElementById('injectBtn').onclick = () => this.injectCode();
+                
+                const volSlider = document.getElementById('masterVolume');
+                volSlider.oninput = (e) => {
+                    AudioEngine.setVolume(e.target.value);
+                };
+                document.getElementById('resetVolBtn').onclick = () => {
+                    const def = 1.0;
+                    volSlider.value = def;
+                    AudioEngine.setVolume(def);
+                };
+
+                this.editor.addEventListener('keydown', (e) => {
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                        this.runCode();
+                    }
+                });
+            },
+
+            initSplitter() {
+                this.splitter.addEventListener('mousedown', (e) => {
+                    this.isDragging = true;
+                    this.splitter.classList.add('dragging');
+                    document.body.style.cursor = 'col-resize';
+                });
+
+                document.addEventListener('mousemove', (e) => {
+                    if (!this.isDragging) return;
+                    
+                    const workspace = document.getElementById('workspace');
+                    const rect = workspace.getBoundingClientRect();
+                    const offsetX = e.clientX - rect.left;
+                    const percentage = (offsetX / rect.width) * 100;
+                    
+                    // Clamp
+                    if (percentage > 20 && percentage < 80) {
+                        this.editorContainer.style.flexBasis = `${percentage}%`;
+                        this.libraryContainer.style.flexBasis = `${100 - percentage}%`;
+                    }
+                });
+
+                document.addEventListener('mouseup', () => {
+                    this.isDragging = false;
+                    this.splitter.classList.remove('dragging');
+                    document.body.style.cursor = 'default';
+                });
+            },
+
+            async injectCode() {
+                // Focus is required by most browsers to enable clipboard API
+                this.editor.focus();
+
+                // 2. CLEAR CODE IMMEDIATELY (Requested Behavior)
+                this.editor.value = "";
+                state.editorCode = "";
+
+                const btn = document.getElementById('injectBtn');
+                const originalText = "INJECT CODE";
+
+                try {
+                    // Check if API is available (it might not be in non-secure contexts)
+                    if (!navigator.clipboard) {
+                        throw new Error("Clipboard API unavailable (requires HTTPS or localhost)");
+                    }
+
+                    const text = await navigator.clipboard.readText();
+                    
+                    if (text) {
+                         this.editor.value = text;
+                         state.editorCode = text;
+                         
+                         // Visual Feedback
+                         btn.innerText = "INJECTED!";
+                         btn.style.borderColor = "var(--accent)";
+                         btn.style.color = "#fff";
+                         btn.style.boxShadow = "0 0 25px var(--accent)";
+                         
+                         // Auto-Execute
+                         this.runCode();
+
+                         setTimeout(() => {
+                             btn.innerText = originalText;
+                             btn.style.borderColor = "";
+                             btn.style.color = "";
+                             btn.style.boxShadow = "";
+                         }, 1000);
+                    }
+                } catch (err) {
+                    console.error("Paste failed:", err);
+                    
+                    // Fail Gracefully
+                    btn.innerText = "PASTE FAILED";
+                    btn.classList.add('cyber-btn-danger');
+
+                    // System Warning
+                    this.errorDisplay.textContent = "SYSTEM WARNING: Clipboard access denied. Buffer cleared. Use Ctrl+V.";
+                    this.errorDisplay.classList.remove('hidden');
+
+                    // Revert Button State (Essential - short delay)
+                    setTimeout(() => {
+                        btn.innerText = originalText;
+                        btn.classList.remove('cyber-btn-danger');
+                    }, 1500);
+
+                    // Hide error toast eventually
+                    setTimeout(() => {
+                         this.errorDisplay.classList.add('hidden');
+                    }, 3500);
+                }
+            },
+
+            runCode() {
+                const code = this.editor.value;
+                state.editorCode = code;
+                this.errorDisplay.classList.add('hidden');
+                
+                const variants = CodeProcessor.extractVariants(code);
+
+                if (variants.length > 0) {
+                    const savedItems = [];
+                    
+                    // 1. Batch Save All Variants (Capture returned items)
+                    variants.forEach(v => {
+                        const item = this.saveToLibrary({
+                            title: v.name,
+                            code: v.code,
+                            isToggle: v.isToggle
+                        });
+                        if (item) savedItems.push(item);
+                    });
+
+                    // 2. Identify which item to play (Default or First)
+                    // The savedItems array corresponds to the variants array order
+                    let playIndex = variants.findIndex(v => v.isDefault);
+                    if (playIndex === -1) playIndex = 0;
+                    
+                    const itemToPlay = savedItems[playIndex];
+                    
+                    if (itemToPlay) {
+                        // 3. Execute with ID (Crucial fix: Pass ID to prevent phantom layers)
+                        const execResult = AudioEngine.execute(itemToPlay.code, itemToPlay.id);
+                        
+                        if (!execResult.success) {
+                            this.errorDisplay.textContent = "RUNTIME ERROR: " + execResult.error;
+                            this.errorDisplay.classList.remove('hidden');
+                        } else {
+                            // 4. Update Running State Immediately for Toggles
+                            if (itemToPlay.isToggle) {
+                                state.runningIds.add(itemToPlay.id);
+                                this.renderLibrary(); // Re-render to show Stop button immediately
+                            }
+
+                            if (savedItems.length > 1) {
+                                 const btn = document.getElementById('playBtn');
+                                 const originalHtml = btn.innerHTML;
+                                 btn.innerHTML = `<span class="text-accent text-xs font-bold">${savedItems.length} SIGNALS EXTRACTED</span>`;
+                                 setTimeout(() => btn.innerHTML = originalHtml, 2000);
+                            }
+                        }
+                    }
+                } else {
+                    // Fallback for empty code or very basic scripts
+                    const result = AudioEngine.execute(code);
+                    if (!result.success) {
+                        this.errorDisplay.textContent = "RUNTIME ERROR: " + result.error;
+                        this.errorDisplay.classList.remove('hidden');
+                    }
+                }
+            },
+
+            saveToLibrary(customItem = null) {
+                // If customItem is passed, use it. Otherwise read from editor.
+                let code, title, isToggle = false;
+                
+                if (customItem) {
+                    code = customItem.code;
+                    title = customItem.title;
+                    isToggle = customItem.isToggle || false;
+                } else {
+                    code = this.editor.value;
+                    if (!code.trim()) return null;
+                    title = 'Untitled Signal';
+                    // Try to guess name even for manual save
+                    const variants = CodeProcessor.extractVariants(code);
+                    if (variants.length > 0) {
+                        const def = variants.find(v => v.isDefault) || variants[0];
+                        if (def.name !== "Untitled Signal") title = def.name;
+                        isToggle = def.isToggle;
+                    }
+                }
+
+                const item = {
+                    id: crypto.randomUUID(),
+                    title: title,
+                    code: code,
+                    desc: analyzeCode(code),
+                    notes: '',
+                    isToggle: isToggle,
+                    timestamp: Date.now()
+                };
+                
+                state.library.unshift(item);
+                this.persist();
+                this.renderLibrary();
+                this.libraryList.scrollTop = 0;
+                
+                return item; // RETURN ITEM so runCode can use the ID
+            },
+
+            startDelete(id) {
+                // Initialize countdown
+                state.pendingDeletes[id] = 3;
+                this.renderLibrary();
+
+                // Clear existing if any
+                if (this.timers[id]) clearInterval(this.timers[id]);
+
+                // Start interval
+                this.timers[id] = setInterval(() => {
+                    state.pendingDeletes[id]--;
+                    if (state.pendingDeletes[id] <= 0) {
+                        clearInterval(this.timers[id]);
+                        delete this.timers[id];
+                        this.finalizeDelete(id);
+                    } else {
+                        this.renderLibrary(); // Update UI
+                    }
+                }, 1000);
+            },
+
+            cancelDelete(id) {
+                if (this.timers[id]) {
+                    clearInterval(this.timers[id]);
+                    delete this.timers[id];
+                }
+                delete state.pendingDeletes[id];
+                this.renderLibrary();
+            },
+
+            finalizeDelete(id) {
+                state.library = state.library.filter(i => i.id !== id);
+                delete state.pendingDeletes[id];
+                // Clean up audio scope
+                if (AudioEngine.activeScopes.has(id)) AudioEngine.activeScopes.delete(id);
+                
+                this.persist();
+                this.renderLibrary();
+            },
+
+            loadItem(id) {
+                const item = state.library.find(i => i.id === id);
+                if (item) {
+                    this.editor.value = item.code;
+                    state.editorCode = item.code;
+                    // Flash effect
+                    this.editorContainer.style.boxShadow = 'inset 0 0 50px rgba(51, 204, 255, 0.3)';
+                    setTimeout(() => this.editorContainer.style.boxShadow = 'none', 300);
+                }
+            },
+
+            togglePrompt(id) {
+                if (state.expandedPrompts.has(id)) {
+                    state.expandedPrompts.delete(id);
+                } else {
+                    state.expandedPrompts.add(id);
+                }
+                this.renderLibrary();
+            },
+
+            copyPromptText(id) {
+                const el = document.getElementById(`prompt-area-${id}`);
+                if(el) {
+                    navigator.clipboard.writeText(el.value);
+                    const btn = document.getElementById(`copy-btn-${id}`);
+                    const old = btn.innerText;
+                    btn.innerText = "COPIED";
+                    setTimeout(() => btn.innerText = old, 1500);
+                }
+            },
+
+            updateNotes(id, text) {
+                const item = state.library.find(i => i.id === id);
+                if (item) { item.notes = text; this.persist(); }
+            },
+
+            updateTitle(id, text) {
+                const item = state.library.find(i => i.id === id);
+                if (item) { item.title = text; this.persist(); }
+            },
+
+            persist() {
+                localStorage.setItem('synthLab_library', JSON.stringify(state.library));
+            },
+
+            renderLibrary() {
+                const list = this.libraryList;
+                document.getElementById('itemCount').innerText = `${state.library.length} SIGNALS LOADED`;
+
+                if (state.library.length === 0) {
+                    list.innerHTML = `<div class="p-4 text-slate-700 text-center text-xs tracking-widest uppercase border border-white/5 border-dashed">/ / Empty Buffer / /</div>`;
+                    return;
+                }
+
+                list.innerHTML = '';
+                state.library.forEach((item, index) => {
+                    const secondsRemaining = state.pendingDeletes[item.id];
+                    const isDeleting = secondsRemaining !== undefined;
+                    const isExpanded = state.expandedPrompts.has(item.id);
+                    const isRunning = state.runningIds.has(item.id);
+                    
+                    const el = document.createElement('div');
+                    el.className = 'lib-item mb-2';
+                    
+                    if (isDeleting) {
+                        el.innerHTML = `
+                            <div class="h-20 bg-red-950/40 border border-red-500/30 relative overflow-hidden transition-all flex items-center">
+                                <div class="flex-grow flex items-center justify-center">
+                                    <span class="text-red-500 font-bold text-sm uppercase tracking-widest">
+                                        Deleting in ${secondsRemaining}...
+                                    </span>
+                                </div>
+                                <button onclick="UI.cancelDelete('${item.id}')" class="h-full w-24 bg-red-600 text-white font-header text-xs uppercase tracking-wider hover:bg-white hover:text-black transition-colors shadow-lg shadow-red-900/50 border-l border-red-500/30">
+                                    UNDO
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        // Generate Natural Language Description
+                        const vividDesc = generateVividDescription(item.code, item.title);
+                        const userNotes = item.notes ? `\n\nUSER NOTES:\n${item.notes}` : "";
+                        const fullPrompt = `${vividDesc}${userNotes}`;
+
+                        // Button Icon Logic
+                        const playIcon = `<svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24" class="group-hover:scale-110 transition-transform"><path d="M8 5v14l11-7z"/></svg>`;
+                        const stopIcon = `<svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" class="group-hover:scale-110 transition-transform"><rect x="6" y="6" width="12" height="12"/></svg>`;
+                        
+                        // Stop button matches Play button default styles (Cyan), but turns Red on hover.
+                        const btnClass = isRunning ? 
+                            "w-14 h-full bg-[rgba(51,204,255,0.05)] text-[#33ccff] hover:bg-red-500 hover:text-black hover:shadow-[0_0_15px_rgba(239,68,68,0.6)] transition-all flex items-center justify-center group" : 
+                            "w-14 h-full lib-play-btn flex items-center justify-center group";
+
+                        el.innerHTML = `
+                            <div class="flex h-14 border-b border-white/5">
+                                <!-- PLAY/STOP BUTTON -->
+                                <button onclick="UI.runLibraryItem('${item.id}')" class="${btnClass}">
+                                    ${isRunning ? stopIcon : playIcon}
+                                </button>
+                                
+                                <!-- METADATA -->
+                                <div class="flex-grow p-2 pl-3 flex flex-col justify-center min-w-0 cursor-pointer hover:bg-white/5 transition-colors" onclick="UI.loadItem('${item.id}')">
+                                    <div class="flex items-baseline gap-2 mb-0.5">
+                                        <span class="text-[10px] text-slate-600 font-mono font-bold">#${(state.library.length - index).toString().padStart(2, '0')}</span>
+                                        <input type="text" 
+                                            class="bg-transparent border-b border-transparent hover:border-slate-700 focus:border-accent text-white text-xs font-bold font-ui uppercase tracking-wide focus:outline-none w-full"
+                                            value="${item.title}"
+                                            onclick="event.stopPropagation()"
+                                            onchange="UI.updateTitle('${item.id}', this.value)"
+                                        >
+                                    </div>
+                                    <div class="text-[10px] text-slate-500 font-mono truncate w-full" title="${item.desc.replace(/<[^>]*>?/gm, '')}">
+                                        ${item.desc}
+                                    </div>
+                                </div>
+
+                                <!-- DELETE BUTTON -->
+                                <button onclick="UI.startDelete('${item.id}')" class="w-12 h-full text-slate-700 hover:text-white hover:bg-red-500/80 transition-all border-l border-white/5 flex items-center justify-center">
+                                    <span class="text-xl font-bold leading-none">&times;</span>
+                                </button>
+                            </div>
+
+                            <!-- FEEDBACK & PROMPT -->
+                            <div class="p-2 bg-black/20">
+                                <input type="text" 
+                                    class="w-full cyber-input text-xs mb-2"
+                                    placeholder="Enter notes.."
+                                    value="${item.notes}"
+                                    onchange="UI.updateNotes('${item.id}', this.value)"
+                                >
+                                <button onclick="UI.togglePrompt('${item.id}')" class="w-full py-1 text-[9px] text-slate-500 hover:text-accent border border-transparent hover:border-accent/20 transition-colors uppercase tracking-widest text-left px-2 flex justify-between">
+                                    <span>Description</span>
+                                    <span>${isExpanded ? '▼' : '▶'}</span>
+                                </button>
+                                
+                                ${isExpanded ? `
+                                    <div class="mt-2 relative animate-fade-in">
+                                        <textarea id="prompt-area-${item.id}" 
+                                            class="w-full h-24 bg-black/50 border border-slate-700 text-[10px] text-slate-300 font-mono p-2 focus:border-accent focus:outline-none resize-none leading-relaxed"
+                                            spellcheck="false">${fullPrompt}</textarea>
+                                        <button id="copy-btn-${item.id}" onclick="UI.copyPromptText('${item.id}')" class="absolute bottom-2 right-2 px-2 py-0.5 bg-slate-900 text-accent border border-accent hover:bg-accent hover:text-black text-[9px] font-bold uppercase transition-all z-10 shadow-lg">
+                                            COPY
+                                        </button>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `;
+                    }
+                    list.appendChild(el);
+                });
+            },
+
+            runLibraryItem(id) {
+                const item = state.library.find(i => i.id === id);
+                if (!item) return;
+
+                // Stop Logic
+                if (state.runningIds.has(id)) {
+                    AudioEngine.stop(id);
+                    state.runningIds.delete(id);
+                    this.renderLibrary();
+                    return;
+                }
+
+                // Play Logic
+                AudioEngine.execute(item.code, id);
+                
+                // Only show stop button if it is a toggleable sound
+                if (item.isToggle) {
+                    state.runningIds.add(id);
+                    this.renderLibrary();
+                }
+            },
+
+            startVisualizer() {
+                const draw = () => {
+                    requestAnimationFrame(draw);
+                    const width = this.canvas.width = this.canvas.offsetWidth;
+                    const height = this.canvas.height = this.canvas.offsetHeight;
+                    const ctx = this.canvasCtx;
+
+                    ctx.clearRect(0, 0, width, height);
+
+                    if (!AudioEngine.analyser) {
+                        ctx.beginPath(); ctx.moveTo(0, height/2); ctx.lineTo(width, height/2);
+                        ctx.strokeStyle = '#334455'; ctx.stroke(); return;
+                    }
+
+                    const bufferLength = AudioEngine.analyser.frequencyBinCount;
+                    const dataArray = new Uint8Array(bufferLength);
+                    AudioEngine.analyser.getByteTimeDomainData(dataArray);
+
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = '#33ccff';
+                    ctx.shadowBlur = 4;
+                    ctx.shadowColor = '#33ccff';
+                    ctx.beginPath();
+
+                    const sliceWidth = width * 1.0 / bufferLength;
+                    let x = 0;
+
+                    for (let i = 0; i < bufferLength; i++) {
+                        const v = dataArray[i] / 128.0;
+                        const y = v * height / 2;
+                        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                        x += sliceWidth;
+                    }
+                    ctx.lineTo(width, height / 2);
+                    ctx.stroke();
+                };
+                draw();
+            }
+        };
+
+        window.addEventListener('DOMContentLoaded', () => {
+            UI.init();
+        });
+        window.UI = UI;
+
+    </script>
+</body>
+</html>
