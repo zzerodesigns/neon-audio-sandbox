@@ -196,7 +196,7 @@
                 <span class="text-accent text-4xl">◆</span> Neon Audio Sandbox
             </h1>
             <p class="text-xs text-slate-500 font-bold tracking-widest mt-1 ml-1">
-                Isolated Testing Environment for Synthesized Audio // v1.9
+                Isolated Testing Environment for Synthesized Audio // v2.0
             </p>
         </div>
 
@@ -341,35 +341,50 @@ osc.stop(t + 0.35);`;
         const CodeProcessor = {
             extractVariants(code) {
                 const variants = [];
-                let funcName = "Untitled Signal";
+                let funcName = null;
                 let argName = null;
 
-                // 1. Detect Name & Structure (Object Method or Function Declaration)
+                // 1. Detect Explicit Function Structure
                 const objMethodMatch = code.match(/^\s*([\w\d_$]+)\s*:\s*function\s*\(\s*(\w+)/);
+                const funcMatch = code.match(/function\s+([\w\d_$]+)\s*\(\s*(\w+)/);
+                const simpleMethodMatch = code.match(/^\s*([\w\d_$]+)\s*:/); // Key without args
+
                 if (objMethodMatch) {
                     funcName = objMethodMatch[1];
                     argName = objMethodMatch[2];
-                } else {
-                    const funcMatch = code.match(/function\s+([\w\d_$]+)\s*\(\s*(\w+)/);
-                    if (funcMatch) {
-                        funcName = funcMatch[1];
-                        argName = funcMatch[2];
-                    } else if (code.match(/^\s*([\w\d_$]+)\s*:/)) {
-                         // Fallback for object keys without args
-                         funcName = code.split(':')[0].trim();
-                    }
+                } else if (funcMatch) {
+                    funcName = funcMatch[1];
+                    argName = funcMatch[2];
+                } else if (simpleMethodMatch) {
+                     funcName = simpleMethodMatch[1].trim();
                 }
 
                 // If argName is 'active', treat as a Toggle Control
                 const isToggle = (argName === 'active');
 
-                // If no arg detected, return single default
-                if (!argName) {
-                    return [{ name: funcName, code: code, isDefault: true, isToggle: false }];
+                // --- RAW CODE MODE ---
+                // If no function structure detected, treat as "Immediate Execution" block
+                if (!funcName) {
+                    return [{ 
+                        name: "Raw Signal", 
+                        code: this.generateWrapper(code, "RAW_EXEC", "RAW_MODE"), 
+                        isDefault: true, 
+                        isToggle: false 
+                    }];
                 }
 
-                // 2. Scan for Variants (if (arg === 'VAL'))
-                // Matches: type === 'VOID' or type === "VOID"
+                // --- VARIANT EXTRACTION ---
+                // If no arg detected, return single default
+                if (!argName) {
+                    return [{ 
+                        name: funcName, 
+                        code: this.generateWrapper(code, funcName, null), 
+                        isDefault: true, 
+                        isToggle: false 
+                    }];
+                }
+
+                // Scan for Variants (if (arg === 'VAL'))
                 const regex = new RegExp(`${argName}\\s*===\\s*(['"])(.*?)\\1`, 'g');
                 let match;
                 const foundTypes = new Set();
@@ -378,20 +393,18 @@ osc.stop(t + 0.35);`;
                     foundTypes.add(match[2]);
                 }
 
-                // 3. Generate Variants
+                // Generate Variants
                 foundTypes.forEach(type => {
                     variants.push({
                         name: `${funcName} (${type})`,
                         code: this.generateWrapper(code, funcName, type),
                         isDefault: false,
-                        isToggle: false // Variants are usually one-shots types
+                        isToggle: false 
                     });
                 });
 
-                // 4. Check for 'else' or if it's a direct toggle
+                // Check for 'else' or toggles
                 if (isToggle) {
-                    // For toggles, we generate a wrapper that passes 'true' initially
-                    // The isToggle flag tells UI to show a stop button
                     variants.push({
                         name: funcName,
                         code: this.generateWrapper(code, funcName, 'TOGGLE_START'),
@@ -407,9 +420,14 @@ osc.stop(t + 0.35);`;
                     });
                 }
 
-                // Fallback: If no variants found and not a toggle
+                // Fallback: If no variants found
                 if (variants.length === 0) {
-                    return [{ name: funcName, code: code, isDefault: true, isToggle: false }];
+                    return [{ 
+                        name: funcName, 
+                        code: this.generateWrapper(code, funcName, null), 
+                        isDefault: true, 
+                        isToggle: false 
+                    }];
                 }
 
                 return variants;
@@ -417,32 +435,61 @@ osc.stop(t + 0.35);`;
 
             generateWrapper(code, key, type) {
                 // Wrapper Strategy: 
-                // We define 'this.main' on the scope so we can call it later with (false) to stop it.
-                // The 'type' arg is passed initially.
+                // 1. Inject Aliases (Shim) for common variables found in wild code snippets.
+                // 2. Wrap in a function 'this.main' for re-entrancy.
                 
+                // --- INTELLIGENT SHIM INJECTION ---
+                const aliases = [];
+                // If user code doesn't declare 'ctx' or 'context', but uses them, inject alias
+                if (!/const\s+ctx\s*=/.test(code) && !/let\s+ctx\s*=/.test(code) && !/var\s+ctx\s*=/.test(code)) {
+                    if (/\bctx\b/.test(code)) aliases.push("const ctx = this.ctx;");
+                }
+                if (!/const\s+context\s*=/.test(code) && !/let\s+context\s*=/.test(code)) {
+                    if (/\bcontext\b/.test(code)) aliases.push("const context = this.ctx;");
+                }
+                // If user code uses 'destination' but doesn't declare it, assume they mean output
+                if (!/const\s+destination\s*=/.test(code) && !/let\s+destination\s*=/.test(code)) {
+                    if (/\bdestination\b/.test(code)) aliases.push("const destination = this.masterGain;");
+                }
+                
+                const shim = aliases.join('\n');
+
                 let callLogic = "";
 
-                if (/^\s*[\w\d_$]+\s*:/.test(code)) {
+                if (key === "RAW_EXEC") {
+                    // Raw Code Mode: Just wrap the body
+                    callLogic = `
+                        ${shim}
+                        ${code}
+                    `;
+                } else if (/^\s*[\w\d_$]+\s*:/.test(code)) {
                     // Object Method
                     const cleanKey = code.split(':')[0].trim();
                     callLogic = `
-                        const ctx = { \n${code}\n};\n
-                        ctx['${cleanKey}'].call(this, arg, {x:0, y:0, z:0});
+                        ${shim}
+                        const obj = { \n${code}\n};\n
+                        obj['${cleanKey}'].call(this, arg);
                     `;
                 } else if (/function\s+[\w\d_$]+/.test(code)) {
                     // Function Declaration
                     callLogic = `
+                        ${shim}
                         ${code}\n
-                        ${key}.call(this, arg, {x:0, y:0, z:0});
+                        ${key}.call(this, arg);
                     `;
                 } else {
-                    // Raw Code fallback
-                    callLogic = code;
+                    // Fallback
+                    callLogic = `
+                        ${shim}
+                        ${code}
+                    `;
                 }
                 
                 // If the type is our special TOGGLE_START, we pass true (boolean)
                 // Otherwise we pass the string type
-                const initialArg = (type === 'TOGGLE_START') ? 'true' : `'${type}'`;
+                let initialArg = 'null';
+                if (type === 'TOGGLE_START') initialArg = 'true';
+                else if (type) initialArg = `'${type}'`;
 
                 return `
 // [Auto-Generated Re-Entrant Wrapper]
@@ -496,8 +543,6 @@ this.main(${initialArg});
                         this.activeScopes.set(id, {
                             ctx: this.ctx,
                             masterGain: this.masterGain,
-                            getDistanceMod: (pos) => 1.0, 
-                            getLinearMod: (pos) => 1.0
                         });
                     }
                     mockScope = this.activeScopes.get(id);
@@ -505,22 +550,18 @@ this.main(${initialArg});
                     mockScope = {
                         ctx: this.ctx,
                         masterGain: this.masterGain,
-                        getDistanceMod: (pos) => 1.0, 
-                        getLinearMod: (pos) => 1.0
                     };
                 }
 
                 try {
-                    // We can't rely on eval() to attach 'main' to scope cleanly if we don't return it
-                    // But 'new Function' runs in global scope usually, unless bound.
                     // We bind the function to mockScope.
-                    
                     const executableFunc = new Function(code);
                     executableFunc.call(mockScope);
                     
                     return { success: true };
 
                 } catch (e) {
+                    console.error(e);
                     return { success: false, error: e.toString() };
                 }
             },
